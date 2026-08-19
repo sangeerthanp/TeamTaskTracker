@@ -1,0 +1,19 @@
+{
+  "name": "team-dashboard",
+  "version": "1.0.0",
+  "description": "Azure DevOps team dashboard - Express API backend (see frontend/ for the Angular app).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,445 @@
+<div class="dashboard-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.open]="sidebarOpen">
+    <div class="sidebar-header">
+      <div class="brand">
+        <span class="brand-mark">TD</span>
+        <span class="brand-name">TeamPulse</span>
+      </div>
+      <button class="icon-btn sidebar-close-btn" (click)="toggleSidebar()" title="Close sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <nav class="project-nav">
+      <button
+        class="project-btn"
+        [class.active]="currentView === 'home'"
+        style="--project-color:#6366f1"
+        (click)="goToHome()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5M6 10v9h5v-5h2v5h5v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Home
+      </button>
+    </nav>
+
+    <p class="nav-label">Projects</p>
+    <nav class="project-nav">
+      <button *ngFor="let project of projects"
+        class="project-btn"
+        [class.active]="currentView !== 'home' && project.id === selectedProject"
+        [style.--project-color]="project.color"
+        (click)="selectProject(project.id)">
+        <span class="project-dot" [style.background]="project.color"></span>
+        {{ project.name }}
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="theme-toggle" (click)="toggleTheme()">
+        <svg *ngIf="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v1M12 20v1M4.2 4.2l.7.7M19.1 19.1l.7.7M3 12h1M20 12h1M4.2 19.8l.7-.7M19.1 4.9l.7-.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/></svg>
+        <svg *ngIf="theme === 'dark'" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        {{ theme === 'light' ? 'Dark mode' : 'Light mode' }}
+      </button>
+    </div>
+  </aside>
+
+  <!-- Sidebar Overlay (for mobile) -->
+  <div class="sidebar-overlay" *ngIf="sidebarOpen" (click)="toggleSidebar()"></div>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn menu-btn" (click)="toggleSidebar()" title="Toggle sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div>
+          <p class="eyebrow">
+            <span class="eyebrow-dot" [style.background]="currentView === 'home' ? '#6366f1' : currentProjectColor"></span>
+            {{ currentView === 'home' ? 'Team Overview' : currentProjectName }}
+          </p>
+          <h1>{{ currentView === 'home' ? 'Home' : 'Team Dashboard' }}</h1>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn theme-toggle-compact" (click)="toggleTheme()" title="Toggle theme">
+          <svg *ngIf="theme === 'light'" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v1M12 20v1M4.2 4.2l.7.7M19.1 19.1l.7.7M3 12h1M20 12h1M4.2 19.8l.7-.7M19.1 4.9l.7-.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/></svg>
+          <svg *ngIf="theme === 'dark'" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="refresh-btn" type="button" (click)="refreshCurrent()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 4v6h6M20 20v-6h-6M4.5 15a8 8 0 0 0 14.6 2.9M19.5 9a8 8 0 0 0-14.6-2.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <section *ngIf="configError" class="alert-box">
+      {{ configError }}
+    </section>
+
+    <!-- HOME PAGE -->
+    <ng-container *ngIf="currentView === 'home' && !configError">
+      <section *ngIf="homeError" class="alert-box">
+        {{ homeError }}
+      </section>
+
+      <div *ngIf="homeLoading" class="loading-state">
+        <span class="spinner"></span>
+        Loading team workload…
+      </div>
+
+      <ng-container *ngIf="!homeLoading">
+        <section class="summary-grid">
+          <article class="stat-card">
+            <div class="stat-icon icon-green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Free</span>
+            <strong>{{ freeMemberCount }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-orange">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Engaged</span>
+            <strong>{{ engagedMemberCount }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>
+            </div>
+            <span>Active Tickets</span>
+            <strong>{{ homeActiveTicketCount }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-neutral">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Hours In Flight</span>
+            <strong>{{ homeTotalHours }}h</strong>
+          </article>
+        </section>
+
+        <section class="member-grid">
+          <article class="member-card" *ngFor="let member of teamWorkload" [ngClass]="member.status" (click)="openMemberDetail(member)">
+            <div class="member-card-header">
+              <span class="avatar avatar-lg" [style.background]="getAvatarColor(member.name)">{{ getInitials(member.name) }}</span>
+              <div class="member-heading">
+                <strong>{{ member.name }}</strong>
+                <span class="status-pill" [ngClass]="member.status">
+                  <span class="status-dot"></span>
+                  {{ member.status === 'free' ? 'Free' : member.status === 'engaged' ? 'Engaged' : 'Active · no estimate' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="member-card-body">
+              <p *ngIf="member.status === 'free'" class="member-note">No active tickets assigned.</p>
+
+              <div *ngIf="member.engagementBasis === 'hours'" class="workload-row">
+                <span>{{ member.activeCount }} active · {{ member.totalHours }}h</span>
+                <strong class="free-date">Free {{ formatFreeDate(member.freeDate) }}</strong>
+              </div>
+
+              <div *ngIf="member.engagementBasis === 'dueDate'" class="workload-row">
+                <span>{{ member.activeCount }} active · by due date</span>
+                <strong class="free-date">Free {{ formatFreeDate(member.freeDate) }}</strong>
+              </div>
+
+              <p *ngIf="member.engagementBasis === 'overdue'" class="member-note member-note-overdue">
+                {{ member.activeCount }} active ticket{{ member.activeCount === 1 ? '' : 's' }} · overdue
+              </p>
+
+              <p *ngIf="member.status === 'unestimated'" class="member-note">
+                {{ member.activeCount }} active ticket{{ member.activeCount === 1 ? '' : 's' }} · no estimate
+              </p>
+            </div>
+
+            <span class="member-card-hint">View tickets →</span>
+          </article>
+        </section>
+      </ng-container>
+    </ng-container>
+
+    <!-- MEMBER DETAIL MODAL -->
+    <div class="modal-overlay" *ngIf="selectedMember" (click)="closeMemberDetail()">
+      <div class="modal-box" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="member-card-header" style="margin-bottom:0">
+            <span class="avatar avatar-lg" [style.background]="getAvatarColor(selectedMember.name)">{{ getInitials(selectedMember.name) }}</span>
+            <div class="member-heading">
+              <strong>{{ selectedMember.name }}</strong>
+              <span class="status-pill" [ngClass]="selectedMember.status">
+                <span class="status-dot"></span>
+                {{ selectedMember.status === 'free' ? 'Free' : selectedMember.status === 'engaged' ? 'Engaged' : 'Active · no estimate' }}
+              </span>
+            </div>
+          </div>
+          <button class="icon-btn" (click)="closeMemberDetail()" title="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <ng-container *ngIf="selectedMember.engagementBasis === 'hours'">
+            <div class="workload-row">
+              <span>Remaining work</span>
+              <strong>{{ selectedMember.totalHours }}h · ~{{ selectedMember.daysNeeded }} day{{ selectedMember.daysNeeded === 1 ? '' : 's' }}</strong>
+            </div>
+            <div class="workload-bar-shell">
+              <div class="workload-bar" [style.width.%]="selectedMember.workloadPercent"></div>
+            </div>
+            <div class="workload-row">
+              <span>Free from</span>
+              <strong class="free-date">{{ formatFreeDate(selectedMember.freeDate) }}</strong>
+            </div>
+          </ng-container>
+
+          <div *ngIf="selectedMember.engagementBasis === 'dueDate'" class="workload-row">
+            <span>Busy until due date</span>
+            <strong class="free-date">Free {{ formatFreeDate(selectedMember.freeDate) }}</strong>
+          </div>
+
+          <p *ngIf="selectedMember.engagementBasis === 'overdue'" class="member-note member-note-overdue">
+            Has {{ selectedMember.activeCount }} active ticket{{ selectedMember.activeCount === 1 ? '' : 's' }} past its due date with no hours logged - likely still in progress, but no reliable free date can be projected.
+          </p>
+
+          <p *ngIf="selectedMember.status === 'free'" class="member-note">No active tickets assigned right now.</p>
+          <p *ngIf="selectedMember.status === 'unestimated'" class="member-note">
+            {{ selectedMember.activeCount }} active ticket{{ selectedMember.activeCount === 1 ? '' : 's' }}, no time estimate or due date logged in Azure DevOps.
+          </p>
+
+          <div class="member-tickets modal-tickets" *ngIf="selectedMember.groups.length">
+            <ng-container *ngFor="let node of selectedMember.groups">
+              <ng-container *ngTemplateOutlet="ticketNode; context: { node: node, depth: 0 }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #ticketNode let-node="node" let-depth="depth">
+      <div class="member-ticket-row" [class.child-row]="depth > 0" [style.margin-left.px]="depth * 20" (click)="openTicket(node.ticket)">
+        <div class="ticket-info">
+          <div class="ticket-title-row">
+            <span class="type-tag" [ngClass]="getTypeTagClass(node.ticket.type)">{{ getTypeTagLabel(node.ticket.type) }}</span>
+            <span class="ticket-title-sm">{{ node.ticket.title }}</span>
+          </div>
+          <div class="ticket-meta-row">
+            <span class="ticket-sprint" *ngIf="node.ticket.sprint && depth === 0">{{ node.ticket.sprint }}</span>
+            <span class="ticket-due"
+              [class.ticket-due-missing]="!node.ticket.dueDate"
+              [class.ticket-due-overdue]="node.ticket.dueDate && isOverdue(node.ticket.dueDate)"
+              [class.ticket-due-ontrack]="node.ticket.dueDate && !isOverdue(node.ticket.dueDate)">{{ formatDueDate(node.ticket.dueDate) }}</span>
+          </div>
+        </div>
+        <span class="ticket-hours" *ngIf="node.ticket.hasEstimate">{{ storyPointsLabel(node.ticket) }}</span>
+        <span class="ticket-hours ticket-hours-none" *ngIf="!node.ticket.hasEstimate">—</span>
+      </div>
+      <ng-container *ngFor="let child of node.children">
+        <ng-container *ngTemplateOutlet="ticketNode; context: { node: child, depth: depth + 1 }"></ng-container>
+      </ng-container>
+    </ng-template>
+
+    <section *ngIf="errorMessage && currentView !== 'home'" class="alert-box">
+      {{ errorMessage }}
+    </section>
+
+    <div *ngIf="loading && currentView !== 'home'" class="loading-state">
+      <span class="spinner"></span>
+      Loading tickets…
+    </div>
+
+    <ng-container *ngIf="!loading && currentView !== 'home'">
+      <!-- Navigation Tabs -->
+      <nav class="nav-tabs">
+        <button [class.active]="currentView === 'summary'" (click)="goToSummary()" class="nav-btn">
+          Summary
+        </button>
+        <button [class.active]="currentView === 'tickets'" (click)="goToTickets()" class="nav-btn">
+          Tickets
+        </button>
+      </nav>
+
+      <!-- SUMMARY PAGE -->
+      <ng-container *ngIf="currentView === 'summary'">
+        <section class="summary-grid">
+          <article class="stat-card">
+            <div class="stat-icon icon-neutral">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>
+            </div>
+            <span>Total Tickets</span>
+            <strong>{{ totalTickets }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Active Tickets</span>
+            <strong>{{ activeTickets }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-orange">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </div>
+            <span>New Tickets</span>
+            <strong>{{ newTickets }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Resolved Tickets</span>
+            <strong>{{ resolvedTickets }}</strong>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon icon-green">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8.5 12.5 11 15l4.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span>Closed Tickets</span>
+            <strong>{{ closedTickets }}</strong>
+          </article>
+        </section>
+
+        <section class="chart-grid">
+          <article class="panel">
+            <h3>Tickets by State</h3>
+            <div class="chart-bars">
+              <div *ngFor="let item of stateChart" class="chart-row">
+                <div class="chart-label-row">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+                <div class="bar-shell">
+                  <div class="bar" [style.width.%]="(item.value / maxChartValue) * 100" [style.background]="item.color"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h3>Tickets by Team Member</h3>
+            <div class="chart-bars">
+              <div *ngFor="let item of memberChart" class="chart-row">
+                <div class="chart-label-row">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+                <div class="bar-shell">
+                  <div class="bar" [style.width.%]="(item.value / maxChartValue) * 100" [style.background]="item.color"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h3>Priority Distribution</h3>
+            <div class="chart-bars">
+              <div *ngFor="let item of priorityChart" class="chart-row">
+                <div class="chart-label-row">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+                <div class="bar-shell">
+                  <div class="bar" [style.width.%]="(item.value / maxChartValue) * 100" [style.background]="item.color"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </ng-container>
+
+      <!-- TICKETS PAGE -->
+      <ng-container *ngIf="currentView === 'tickets'">
+        <section class="filters-grid">
+          <label>
+            <span>Search</span>
+            <div class="input-with-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search title or ID" />
+            </div>
+          </label>
+
+          <label>
+            <span>State</span>
+            <select [(ngModel)]="stateFilter" (ngModelChange)="onFilterChange()">
+              <option *ngFor="let option of stateOptions" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Assigned User</span>
+            <select [(ngModel)]="assigneeFilter" (ngModelChange)="onFilterChange()">
+              <option *ngFor="let option of assigneeOptions" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel table-panel">
+          <div class="table-header">
+            <h3>Tickets</h3>
+            <span class="result-count">{{ totalTicketsCount }} results</span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>State</th>
+                  <th>Assigned To</th>
+                  <th>Sprint</th>
+                  <th>Estimate</th>
+                  <th>Priority</th>
+                  <th>Created Date</th>
+                  <th>Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let ticket of tickets" (click)="openTicket(ticket)" class="clickable-row">
+                  <td><strong class="ticket-id">#{{ ticket.id }}</strong></td>
+                  <td class="ticket-title">{{ ticket.title }}</td>
+                  <td><span class="type-pill">{{ ticket.type }}</span></td>
+                  <td><span class="status-pill" [ngClass]="normalizeState(ticket.state).toLowerCase()"><span class="status-dot"></span>{{ normalizeState(ticket.state) }}</span></td>
+                  <td>
+                    <div class="assignee-cell">
+                      <span class="avatar" [style.background]="getAvatarColor(ticket.assignedTo)">{{ getInitials(ticket.assignedTo) }}</span>
+                      {{ ticket.assignedTo }}
+                    </div>
+                  </td>
+                  <td>
+                    <span class="ticket-sprint" *ngIf="ticket.sprint">{{ ticket.sprint }}</span>
+                    <span class="ticket-hours-none" *ngIf="!ticket.sprint">—</span>
+                  </td>
+                  <td>
+                    <span *ngIf="ticket.hasEstimate">{{ storyPointsLabel(ticket) }}</span>
+                    <span class="ticket-hours-none" *ngIf="!ticket.hasEstimate">—</span>
+                  </td>
+                  <td><span class="priority-pill" [ngClass]="'p' + (ticket.priority || 0)">P{{ ticket.priority || 0 }}</span></td>
+                  <td><small>{{ formatDate(ticket.createdDate) }}</small></td>
+                  <td><small>{{ formatDate(ticket.changedDate) }}</small></td>
+                </tr>
+                <tr *ngIf="!tickets.length">
+                  <td colspan="10" class="empty-state">No matching tickets found.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Controls -->
+          <div class="pagination-controls">
+            <button class="pag-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+              ← Previous
+            </button>
+            <span class="pag-info">Page {{ currentPage }} of {{ totalPages }}</span>
+            <button class="pag-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+              Next →
+            </button>
+          </div>
+        </section>
+      </ng-container>
+    </ng-container>
+  </main>
+</div>
