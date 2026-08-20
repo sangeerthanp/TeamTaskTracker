@@ -818,37 +818,44 @@ h1 {
   border-radius: 4px;
 }
 
-.type-tag.type-story {
+.type-tag.type-story,
+.type-pill.type-story {
   background: rgba(0, 120, 212, 0.14);
   color: #0078d4;
 }
 
-.type-tag.type-task {
+.type-tag.type-task,
+.type-pill.type-task {
   background: rgba(242, 168, 29, 0.18);
   color: #b8790a;
 }
 
-.type-tag.type-release {
+.type-tag.type-release,
+.type-pill.type-release {
   background: rgba(230, 20, 140, 0.14);
   color: #c7127a;
 }
 
-.type-tag.type-epic {
+.type-tag.type-epic,
+.type-pill.type-epic {
   background: rgba(247, 148, 30, 0.18);
   color: #c1650a;
 }
 
-.type-tag.type-feature {
+.type-tag.type-feature,
+.type-pill.type-feature {
   background: rgba(142, 68, 173, 0.16);
   color: #7b2e97;
 }
 
-.type-tag.type-bug {
+.type-tag.type-bug,
+.type-pill.type-bug {
   background: rgba(220, 53, 69, 0.14);
   color: #c62839;
 }
 
-.type-tag.type-other {
+.type-tag.type-other,
+.type-pill.type-other {
   background: rgba(107, 114, 128, 0.14);
   color: #6b7280;
 }
@@ -939,7 +946,10 @@ h1 {
 }
 
 .table-wrap {
+  position: relative;
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 60vh;
 }
 
 table {
@@ -963,6 +973,9 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border-top: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .ticket-title {
@@ -985,8 +998,13 @@ tbody tr:hover {
   background: var(--surface-sunken);
 }
 
-.clickable-row {
+.ticket-id.clickable-row {
   cursor: pointer;
+}
+
+.ticket-id.clickable-row:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
 
 .assignee-cell {
@@ -1039,6 +1057,8 @@ tbody tr:hover {
   border-radius: var(--radius-sm);
   font-size: 0.68rem;
   font-weight: 600;
+  /* Colored per work item type via the same type-story/type-task/type-bug
+     etc. classes the hierarchy view's type-tag uses - see those rules below. */
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
@@ -1096,6 +1116,21 @@ tbody tr:hover {
   color: var(--text-tertiary);
   padding: 32px;
   white-space: normal;
+}
+
+.table-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface-glass-strong);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: var(--text-secondary);
+  font-weight: 500;
+  z-index: 2;
 }
 
 /* ---------------------------------------------------------------------- */

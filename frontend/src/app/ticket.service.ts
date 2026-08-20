@@ -43,6 +43,7 @@ export interface TicketsQuery {
   pageSize?: number | 'all';
   assignedTo?: string;
   state?: string;
+  type?: string;
   search?: string;
   includeParentContext?: boolean;
 }
@@ -76,6 +77,7 @@ export class TicketService {
     if (query.pageSize) params['pageSize'] = String(query.pageSize);
     if (query.assignedTo && query.assignedTo !== 'All') params['assignedTo'] = query.assignedTo;
     if (query.state && query.state !== 'All') params['state'] = query.state;
+    if (query.type && query.type !== 'All') params['type'] = query.type;
     if (query.search && query.search.trim()) params['search'] = query.search.trim();
     if (query.includeParentContext) params['includeParentContext'] = 'true';
 

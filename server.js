@@ -192,6 +192,12 @@ app.get("/api/tickets", async (req, res) => {
   const stateFilter = Object.prototype.hasOwnProperty.call(STATE_FILTER_TO_AZURE_STATE, req.query.state)
     ? STATE_FILTER_TO_AZURE_STATE[req.query.state]
     : null;
+  // Work item types vary by Azure DevOps process template, so (unlike state)
+  // there's no fixed allow-list here - the value is escaped the same way
+  // searchTerm is below, which is enough to keep it safe inside the WIQL literal.
+  const typeFilter = typeof req.query.type === "string" && req.query.type.trim() && req.query.type !== "All"
+    ? req.query.type.trim()
+    : null;
   const searchTerm = typeof req.query.search === "string" ? req.query.search.trim() : "";
   // Only the Home page's hierarchy view needs parent backfill - the paginated
   // Tickets tab doesn't render a tree, so skip the extra API calls there.
@@ -214,6 +220,9 @@ app.get("/api/tickets", async (req, res) => {
     }
     if (stateFilter) {
       conditions.push(`[System.State] = '${escapeWiqlLiteral(stateFilter)}'`);
+    }
+    if (typeFilter) {
+      conditions.push(`[System.WorkItemType] = '${escapeWiqlLiteral(typeFilter)}'`);
     }
     if (searchTerm) {
       // Searches by title text across the whole filtered set (not just the

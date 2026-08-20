@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+﻿import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { Ticket, TicketService } from './ticket.service';
 
@@ -40,6 +40,11 @@ export interface MemberWorkload {
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
+  // Bound to the Tickets tab's scrollable table body - reset to top on page
+  // change so the next/previous page doesn't open at whatever scroll depth
+  // the previous page was left at.
+  @ViewChild('tableWrap') private tableWrapRef?: ElementRef<HTMLDivElement>;
+
   // Current page of tickets for the Tickets tab (fetched from the server one page at a time).
   tickets: Ticket[] = [];
   // Full team-scoped ticket set, used only for the Summary tab's totals and charts.
@@ -49,6 +54,7 @@ export class AppComponent implements OnInit {
   searchTerm = '';
   assigneeFilter = 'All';
   stateFilter = 'All';
+  typeFilter = 'All';
   currentPage = 1;
   pageSize = 10;
   totalTicketsCount = 0;
@@ -172,6 +178,7 @@ export class AppComponent implements OnInit {
       pageSize: this.pageSize,
       assignedTo: this.assigneeFilter,
       state: this.stateFilter,
+      type: this.typeFilter,
       search: this.searchTerm
     }).subscribe({
       next: (response) => {
@@ -483,9 +490,16 @@ export class AppComponent implements OnInit {
     return this.totalPagesFromServer;
   }
 
+  private resetTableScroll(): void {
+    if (this.tableWrapRef) {
+      this.tableWrapRef.nativeElement.scrollTop = 0;
+    }
+  }
+
   nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
+      this.resetTableScroll();
       this.loadTickets();
     }
   }
@@ -493,6 +507,7 @@ export class AppComponent implements OnInit {
   prevPage(): void {
     if (this.currentPage > 1) {
       this.currentPage--;
+      this.resetTableScroll();
       this.loadTickets();
     }
   }
@@ -524,6 +539,7 @@ export class AppComponent implements OnInit {
     this.searchTerm = '';
     this.assigneeFilter = 'All';
     this.stateFilter = 'All';
+    this.typeFilter = 'All';
     this.loadTickets();
     this.loadSummary();
   }
@@ -568,6 +584,14 @@ export class AppComponent implements OnInit {
 
   get assigneeOptions(): string[] {
     return ['All', ...this.teamMembers];
+  }
+
+  // Work item types aren't a fixed set across Azure DevOps process templates
+  // (unlike state), so the dropdown is built from whatever types actually
+  // show up in this project's team-scoped tickets rather than a hardcoded list.
+  get typeOptions(): string[] {
+    const types = new Set(this.allTickets.map((ticket) => ticket.type).filter(Boolean));
+    return ['All', ...Array.from(types).sort()];
   }
 
   get stateChart(): Array<{ label: string; value: number; color: string }> {

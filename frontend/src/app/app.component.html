@@ -245,12 +245,12 @@
       {{ errorMessage }}
     </section>
 
-    <div *ngIf="loading && currentView !== 'home'" class="loading-state">
+    <div *ngIf="loading && currentView !== 'home' && currentView !== 'tickets'" class="loading-state">
       <span class="spinner"></span>
       Loading tickets…
     </div>
 
-    <ng-container *ngIf="!loading && currentView !== 'home'">
+    <ng-container *ngIf="(!loading || currentView === 'tickets') && currentView !== 'home'">
       <!-- Navigation Tabs -->
       <nav class="nav-tabs">
         <button [class.active]="currentView === 'summary'" (click)="goToSummary()" class="nav-btn">
@@ -368,6 +368,13 @@
           </label>
 
           <label>
+            <span>Type</span>
+            <select [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
+              <option *ngFor="let option of typeOptions" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+
+          <label>
             <span>Assigned User</span>
             <select [(ngModel)]="assigneeFilter" (ngModelChange)="onFilterChange()">
               <option *ngFor="let option of assigneeOptions" [value]="option">{{ option }}</option>
@@ -381,7 +388,7 @@
             <span class="result-count">{{ totalTicketsCount }} results</span>
           </div>
 
-          <div class="table-wrap">
+          <div class="table-wrap" #tableWrap>
             <table>
               <thead>
                 <tr>
@@ -398,10 +405,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let ticket of tickets" (click)="openTicket(ticket)" class="clickable-row">
-                  <td><strong class="ticket-id">#{{ ticket.id }}</strong></td>
+                <tr *ngFor="let ticket of tickets">
+                  <td><strong class="ticket-id clickable-row" (click)="openTicket(ticket)">#{{ ticket.id }}</strong></td>
                   <td class="ticket-title">{{ ticket.title }}</td>
-                  <td><span class="type-pill">{{ ticket.type }}</span></td>
+                  <td><span class="type-pill" [ngClass]="getTypeTagClass(ticket.type)">{{ ticket.type }}</span></td>
                   <td><span class="status-pill" [ngClass]="normalizeState(ticket.state).toLowerCase()"><span class="status-dot"></span>{{ normalizeState(ticket.state) }}</span></td>
                   <td>
                     <div class="assignee-cell">
@@ -421,11 +428,16 @@
                   <td><small>{{ formatDate(ticket.createdDate) }}</small></td>
                   <td><small>{{ formatDate(ticket.changedDate) }}</small></td>
                 </tr>
-                <tr *ngIf="!tickets.length">
+                <tr *ngIf="!loading && !tickets.length">
                   <td colspan="10" class="empty-state">No matching tickets found.</td>
                 </tr>
               </tbody>
             </table>
+
+            <div class="table-loading-overlay" *ngIf="loading">
+              <span class="spinner"></span>
+              Loading tickets…
+            </div>
           </div>
 
           <!-- Pagination Controls -->
