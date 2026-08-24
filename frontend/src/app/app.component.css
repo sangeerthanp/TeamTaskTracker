@@ -3,10 +3,7 @@
   min-height: 100vh;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  background:
-    radial-gradient(1200px 600px at 100% -10%, var(--bg-mesh-a), transparent 60%),
-    radial-gradient(900px 500px at -10% 10%, var(--bg-mesh-b), transparent 55%),
-    var(--bg);
+  background: var(--bg);
 }
 
 * {
@@ -16,12 +13,15 @@
 h1, h2, h3 {
   font-family: var(--font-display);
   color: var(--text-primary);
-  letter-spacing: -0.02em;
 }
 
 .dashboard-shell {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr) rather than bare 1fr - a bare 1fr track's automatic
+     minimum is its content's min-content size, which is how a wide table
+     or filter row ends up forcing the whole page wider than the window
+     instead of reflowing when it's resized. */
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
   position: relative;
 }
@@ -38,13 +38,10 @@ h1, h2, h3 {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--surface-glass-strong);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 20px 14px;
   overflow-y: auto;
-  box-shadow: var(--shadow-lg);
   transform: translateX(-100%);
   transition: transform var(--dur-med) var(--ease-out);
   z-index: 1001;
@@ -52,13 +49,13 @@ h1, h2, h3 {
 
 .sidebar.open {
   transform: translateX(0);
+  box-shadow: var(--shadow-lg);
 }
 
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(8, 9, 15, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(16, 24, 40, 0.5);
   z-index: 1000;
   animation: fadeIn var(--dur-med) ease;
 }
@@ -83,25 +80,10 @@ h1, h2, h3 {
   gap: 10px;
 }
 
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--gradient-brand);
-  color: white;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.75rem;
-  box-shadow: var(--shadow-glow);
-}
-
 .brand-name {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-weight: 600;
+  font-size: 1.1rem;
   color: var(--text-primary);
 }
 
@@ -130,8 +112,8 @@ h1, h2, h3 {
   margin: 4px 10px 8px;
   color: var(--text-tertiary);
   font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -142,6 +124,7 @@ h1, h2, h3 {
 }
 
 .project-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -153,31 +136,44 @@ h1, h2, h3 {
   cursor: pointer;
   font-weight: 500;
   font-size: 0.92rem;
-  border-radius: var(--radius-md);
-  transition: all var(--dur-fast) var(--ease-out);
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   text-align: left;
 }
 
 .project-btn:hover {
   background: var(--surface-sunken);
   color: var(--text-primary);
-  transform: translateX(2px);
 }
 
 .project-btn.active {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--project-color) 14%, transparent), color-mix(in srgb, var(--project-color) 6%, transparent));
-  border-color: color-mix(in srgb, var(--project-color) 30%, transparent);
+  background: color-mix(in srgb, var(--project-color) 10%, transparent);
   color: var(--text-primary);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
 }
 
-.project-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+.project-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--project-color);
+}
+
+.project-tile {
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.62rem;
 }
 
 .sidebar-footer {
@@ -214,6 +210,11 @@ h1, h2, h3 {
 .main-content {
   display: flex;
   flex-direction: column;
+  /* Without this, a grid item's default auto min-width is its content's
+     min-content size - so a wide table or a multi-column filter row can
+     stop this from ever shrinking below that, and the whole page overflows
+     sideways instead of reflowing when the window is resized down. */
+  min-width: 0;
 }
 
 .topbar {
@@ -226,6 +227,7 @@ h1, h2, h3 {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  min-width: 0;
   gap: 16px;
 }
 
@@ -239,24 +241,18 @@ h1, h2, h3 {
   margin: 0;
   color: var(--accent-strong);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 7px;
 }
 
-.eyebrow-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
 h1 {
   margin: 4px 0 0;
   font-size: clamp(1.35rem, 1.8vw, 1.7rem);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .topbar-actions {
@@ -267,33 +263,26 @@ h1 {
 
 .theme-toggle-compact {
   border: 1px solid var(--border);
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
 }
 
 .refresh-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: none;
-  background: var(--gradient-brand);
+  border: 1px solid transparent;
+  background: var(--accent);
   color: white;
   padding: 8px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 600;
   font-size: 0.82rem;
-  box-shadow: var(--shadow-glow);
-  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .refresh-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15), 0 16px 36px -6px rgba(99, 102, 241, 0.4);
-}
-
-.refresh-btn:active {
-  transform: translateY(0);
+  background: var(--accent-strong);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -311,6 +300,7 @@ h1 {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  min-width: 0;
   padding: 0 24px;
 }
 
@@ -319,6 +309,7 @@ h1 {
   margin-left: auto;
   margin-right: auto;
   width: calc(100% - 48px);
+  min-width: 0;
   margin-bottom: 36px;
 }
 
@@ -349,7 +340,7 @@ h1 {
 .nav-btn.active {
   color: var(--accent-strong);
   border-bottom-color: var(--accent);
-  background: var(--surface-glass);
+  background: var(--surface-sunken);
 }
 
 .nav-btn:hover:not(.active) {
@@ -364,35 +355,20 @@ h1 {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
 .stat-card {
   position: relative;
-  background: var(--surface-glass);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: var(--surface);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
-  overflow: hidden;
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), transparent 40%);
-  opacity: 0.5;
-  pointer-events: none;
+  transition: border-color var(--dur-med) var(--ease-out);
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
   border-color: var(--border-strong);
 }
 
@@ -425,9 +401,9 @@ h1 {
 }
 
 .stat-card strong {
-  font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
 }
 
@@ -456,7 +432,7 @@ h1 {
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: 0.85rem;
-  background: var(--surface-glass);
+  background: var(--surface);
   color: var(--text-primary);
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
@@ -475,7 +451,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0 10px;
-  background: var(--surface-glass);
+  background: var(--surface);
   color: var(--text-tertiary);
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
@@ -500,24 +476,21 @@ h1 {
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
 .panel {
-  background: var(--surface-glass);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: var(--surface);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
 }
 
 .panel h3 {
   margin: 0 0 12px;
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .chart-bars {
@@ -542,7 +515,8 @@ h1 {
 
 .chart-label-row strong {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .bar-shell {
@@ -557,7 +531,6 @@ h1 {
   height: 100%;
   border-radius: inherit;
   transition: width 0.6s var(--ease-out);
-  box-shadow: 0 0 12px -2px currentColor;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -566,40 +539,29 @@ h1 {
 
 .member-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  /* Fluid rather than fixed 3/2/1-column breakpoints, so it sizes off the
+     actual space main-content has - not just raw viewport width, which
+     stops matching once the sidebar becomes a persistent rail (see the
+     min-width: 960px rule below). */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
   margin-bottom: 28px;
-}
-
-@media (max-width: 900px) {
-  .member-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 600px) {
-  .member-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .member-card {
   position: relative;
-  background: var(--surface-glass);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: var(--surface);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border);
   border-left: 3px solid var(--border-strong);
-  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out);
+  transition: border-color var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out);
 }
 
 .member-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .member-card:hover .member-card-hint {
@@ -684,7 +646,7 @@ h1 {
 
 .workload-row strong {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .free-date {
@@ -703,7 +665,7 @@ h1 {
 .workload-bar {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--warning), #ef4444);
+  background: var(--warning);
   transition: width 0.6s var(--ease-out);
 }
 
@@ -728,8 +690,7 @@ h1 {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(8, 9, 15, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(16, 24, 40, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -743,9 +704,7 @@ h1 {
   max-width: 440px;
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--surface-glass-strong);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
@@ -811,7 +770,7 @@ h1 {
 .type-tag {
   flex-shrink: 0;
   font-size: 0.6rem;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 2px 6px;
@@ -897,7 +856,7 @@ h1 {
 
 .ticket-due-overdue {
   color: var(--danger);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ticket-due-ontrack {
@@ -906,7 +865,8 @@ h1 {
 
 .ticket-hours {
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   flex-shrink: 0;
 }
@@ -954,22 +914,35 @@ h1 {
 
 table {
   width: 100%;
+  /* Fixed rather than the browser's default content-based auto layout -
+     otherwise each page's column widths recompute from whatever happens to
+     be in that page's 10 rows, so columns visibly shift between pages
+     instead of staying put. Widths come from the <colgroup> below. */
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
 th, td {
   text-align: left;
-  padding: 9px 16px;
+  padding: 11px 16px;
   border-top: 1px solid var(--border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.85rem;
+}
+
+td small {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
 }
 
 th {
   background: var(--surface-sunken);
   color: var(--text-tertiary);
   font-size: 0.66rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border-top: none;
@@ -979,14 +952,15 @@ th {
 }
 
 .ticket-title {
+  /* Width comes from the <colgroup> now (table-layout: fixed), not this -
+     just controls wrapping within that fixed column. */
   white-space: normal;
-  max-width: 360px;
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .ticket-id {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1022,7 +996,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   font-size: 0.6rem;
-  font-weight: 700;
+  font-weight: 600;
   color: white;
   flex-shrink: 0;
   box-shadow: var(--shadow-xs);
@@ -1035,7 +1009,7 @@ tbody tr:hover {
   padding: 3px 9px;
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .status-dot {
@@ -1068,7 +1042,8 @@ tbody tr:hover {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   border: 1px solid var(--border);
   color: var(--text-secondary);
 }
@@ -1125,9 +1100,7 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--surface-glass-strong);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--surface);
   color: var(--text-secondary);
   font-weight: 500;
   z-index: 2;
@@ -1148,22 +1121,20 @@ tbody tr:hover {
 
 .pag-btn {
   border: 1px solid var(--border);
-  background: var(--surface-glass);
+  background: var(--surface);
   color: var(--text-secondary);
   padding: 6px 13px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 600;
   font-size: 0.8rem;
-  transition: all var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .pag-btn:hover:not(:disabled) {
-  background: var(--gradient-brand);
+  background: var(--accent);
   color: white;
   border-color: transparent;
-  box-shadow: var(--shadow-glow);
-  transform: translateY(-1px);
 }
 
 .pag-btn:disabled {
@@ -1172,17 +1143,46 @@ tbody tr:hover {
 }
 
 .pag-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-tertiary);
   font-weight: 600;
   font-size: 0.8rem;
   min-width: 100px;
+  justify-content: center;
+}
+
+.pag-page-input {
+  width: 44px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 3px 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
   text-align: center;
+  -moz-appearance: textfield;
+}
+
+.pag-page-input::-webkit-inner-spin-button,
+.pag-page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pag-page-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ---------------------------------------------------------------------- */
 /* Responsive                                                              */
 /* ---------------------------------------------------------------------- */
 
+/* Below this, the sidebar is a toggleable overlay drawer (its default
+   state) - there isn't room for a permanent rail alongside real content. */
 @media (max-width: 700px) {
   .menu-btn {
     display: flex;
@@ -1201,5 +1201,48 @@ tbody tr:hover {
 
   .topbar-actions {
     justify-content: space-between;
+  }
+}
+
+/* From tablet-landscape up, there's enough width for the sidebar to sit
+   permanently alongside content instead of behaving as an overlay drawer. */
+@media (min-width: 960px) {
+  .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: none;
+  }
+
+  .menu-btn,
+  .sidebar-close-btn {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 264px;
+  }
+}
+
+/* Narrow phones: give the filters and table a touch less side padding so
+   content isn't fighting the screen edges for space. */
+@media (max-width: 480px) {
+  .summary-grid,
+  .filters-grid,
+  .chart-grid,
+  .member-grid,
+  .nav-tabs,
+  .alert-box,
+  .loading-state {
+    padding: 0 14px;
+  }
+
+  .table-panel {
+    width: calc(100% - 28px);
+  }
+
+  .topbar {
+    padding: 16px 14px 0;
   }
 }

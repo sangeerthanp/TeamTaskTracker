@@ -22,6 +22,11 @@ export interface Ticket {
   // (hasEstimate distinguishes "0 hours" from "never estimated").
   estimatedHours: number;
   hasEstimate: boolean;
+  // Hours actually logged so far (Azure DevOps' Completed Work field) - only
+  // ever set on Tasks, since that's the only type Azure DevOps tracks
+  // hours-worked on; backlog-level types have no such field.
+  completedHours: number;
+  hasCompletedHours: boolean;
   // True for a parent fetched purely to complete the hierarchy chain (e.g. a
   // Release above an Epic) - it wasn't part of the Active/team-scoped query
   // itself, so it's excluded from active-ticket counts and hour totals and

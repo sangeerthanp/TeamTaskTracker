@@ -122,6 +122,14 @@ function mapWorkItemToTicket(item, projectConfig, isContextOnly) {
     estimatedHours = hasEstimate ? Number(storyPoints) * HOURS_PER_STORY_POINT : 0;
   }
 
+  // Completed Work only exists as a trackable field on Tasks in Azure DevOps
+  // (the same as Original Estimate above) - backlog-level types (User Story,
+  // Bug, Feature, Epic...) are sized in Story Points and have no hours-worked
+  // field of their own, so they simply have no completed-hours value.
+  const completedWork = fields["Microsoft.VSTS.Scheduling.CompletedWork"];
+  const hasCompletedHours = type === "Task" && completedWork != null;
+  const completedHours = hasCompletedHours ? Number(completedWork) : 0;
+
   // A bare iteration path (just the project name, no sprint node under it)
   // means no sprint was ever assigned - only show one when there's an actual
   // sprint segment beneath the project root.
@@ -142,6 +150,8 @@ function mapWorkItemToTicket(item, projectConfig, isContextOnly) {
     dueDate: fields["Microsoft.VSTS.Scheduling.DueDate"] || null,
     estimatedHours,
     hasEstimate,
+    completedHours,
+    hasCompletedHours,
     isContextOnly: !!isContextOnly,
     link: `https://dev.azure.com/${organization}/${projectConfig.azureProject}/_workitems/edit/${item.id}`
   };
@@ -298,7 +308,8 @@ app.get("/api/tickets", async (req, res) => {
       "System.ChangedDate",
       "Microsoft.VSTS.Scheduling.OriginalEstimate",
       "Microsoft.VSTS.Scheduling.StoryPoints",
-      "Microsoft.VSTS.Scheduling.DueDate"
+      "Microsoft.VSTS.Scheduling.DueDate",
+      "Microsoft.VSTS.Scheduling.CompletedWork"
     ].join(",");
 
     const allDetails = [];

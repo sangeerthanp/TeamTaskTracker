@@ -81,19 +81,19 @@ export class AppComponent implements OnInit {
 
   // Small fixed palette assigned to projects by load order, so each project
   // gets a stable, distinct color without needing one configured server-side.
-  private readonly projectColorPalette = ['#4f46e5', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6'];
+  private readonly projectColorPalette = ['#5b5fc7', '#0f6cbd', '#0b825c', '#986f00', '#a4262c'];
 
   theme: 'light' | 'dark' = 'light';
 
   // Single on-brand qualitative palette, shared by avatars and the member
   // chart so the same person always renders in the same color everywhere.
-  private readonly avatarPalette = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#3b82f6'];
+  private readonly avatarPalette = ['#5b5fc7', '#0f6cbd', '#0b825c', '#986f00', '#a4262c', '#8764b8'];
 
   private readonly priorityColors: Record<string, string> = {
-    P0: '#ef4444',
-    P1: '#f59e0b',
-    P2: '#3b82f6',
-    P3: '#94a3b8'
+    P0: '#d13438',
+    P1: '#9d5d00',
+    P2: '#0f6cbd',
+    P3: '#8a8886'
   };
 
   constructor(private ticketService: TicketService) {}
@@ -151,7 +151,7 @@ export class AppComponent implements OnInit {
     if (!name || name === 'Unassigned') return '?';
     return name
       .split(' ')
-      .filter(Boolean)
+      .filter((part) => /[A-Za-z0-9]/.test(part))
       .slice(0, 2)
       .map((part) => part[0].toUpperCase())
       .join('');
@@ -290,6 +290,23 @@ export class AppComponent implements OnInit {
     return this.addWorkingDays(date, 1);
   }
 
+  // Working days (Mon-Fri) elapsed between a date and today, at whole-day
+  // granularity - same model addWorkingDays already uses elsewhere. Weekends
+  // don't count, and each elapsed working day counts as a full HOURS_PER_DAY
+  // regardless of what time of day it currently is.
+  private elapsedWorkingDaysSince(date: Date): number {
+    const start = this.startOfDay(date);
+    const now = this.startOfDay(new Date());
+    let workingDays = 0;
+    const cursor = new Date(start);
+    while (cursor < now) {
+      cursor.setDate(cursor.getDate() + 1);
+      const day = cursor.getDay();
+      if (day !== 0 && day !== 6) workingDays++;
+    }
+    return workingDays;
+  }
+
   isOverdue(dueDate: string | null): boolean {
     if (!dueDate) return false;
     return this.startOfDay(new Date(dueDate)) < this.startOfDay(new Date());
@@ -306,6 +323,29 @@ export class AppComponent implements OnInit {
       return `${points} pt${points === 1 ? '' : 's'} · ${ticket.estimatedHours}h`;
     }
     return `${ticket.estimatedHours}h`;
+  }
+
+  // How much of a ticket's estimate is actually still left, right now.
+  // Completed Work (only ever set on Tasks) is the most reliable signal when
+  // it's there. Otherwise this counts down from the estimate based on
+  // working days elapsed since the ticket was created, at HOURS_PER_DAY
+  // (8h) per day - nobody works nights/weekends, so raw calendar-hour
+  // elapsed time would burn through the estimate 3x too fast. It's still
+  // an approximation (nobody works every working hour on this one ticket
+  // either), not a substitute for actually logging work.
+  private remainingHoursFor(ticket: Ticket): number {
+    if (!ticket.hasEstimate) return 0;
+    if (ticket.hasCompletedHours) {
+      return Math.max(0, ticket.estimatedHours - ticket.completedHours);
+    }
+    if (!ticket.createdDate) return ticket.estimatedHours;
+    const elapsedHours = this.elapsedWorkingDaysSince(new Date(ticket.createdDate)) * HOURS_PER_DAY;
+    return Math.max(0, ticket.estimatedHours - elapsedHours);
+  }
+
+  remainingHoursLabel(ticket: Ticket): string {
+    const remaining = Math.round(this.remainingHoursFor(ticket) * 10) / 10;
+    return `${remaining}h`;
   }
 
   getTypeTagClass(type: string): string {
@@ -372,7 +412,7 @@ export class AppComponent implements OnInit {
     const visit = (node: TicketNode, ancestorCovers: boolean): void => {
       const ownHoursCounted = !ancestorCovers && node.ticket.hasEstimate && !node.ticket.isContextOnly;
       if (ownHoursCounted) {
-        totalHours += node.ticket.estimatedHours;
+        totalHours += this.remainingHoursFor(node.ticket);
       }
       const covers = ancestorCovers || ownHoursCounted;
       node.children.forEach((child) => visit(child, covers));
@@ -418,7 +458,10 @@ export class AppComponent implements OnInit {
         // separately, purely so buildTicketTree can nest under them.
         const ownTickets = this.homeTickets.filter((t) => t.assignedTo === name && !t.isContextOnly);
         const tickets = this.withAncestorContext(ownTickets, globalById);
-        const { groups, totalHours } = this.buildTicketTree(tickets);
+        const { groups, totalHours: rawTotalHours } = this.buildTicketTree(tickets);
+        // Rounded once here so every downstream figure derived from it
+        // (days needed, the workload bar, the displayed total) agrees.
+        const totalHours = Math.round(rawTotalHours * 10) / 10;
         const futureDue = ownTickets.filter((t) => t.dueDate && this.startOfDay(new Date(t.dueDate)) >= today);
         const hasOverdue = ownTickets.some((t) => t.dueDate && this.startOfDay(new Date(t.dueDate)) < today);
 
@@ -493,6 +536,7 @@ export class AppComponent implements OnInit {
   private resetTableScroll(): void {
     if (this.tableWrapRef) {
       this.tableWrapRef.nativeElement.scrollTop = 0;
+      this.tableWrapRef.nativeElement.scrollLeft = 0;
     }
   }
 
@@ -509,6 +553,26 @@ export class AppComponent implements OnInit {
       this.currentPage--;
       this.resetTableScroll();
       this.loadTickets();
+    }
+  }
+
+  // Jumps directly to a typed page number from the pagination bar's input,
+  // clamping to the valid range. Also resets the input's displayed value -
+  // needed because Angular skips re-writing a native [value] binding when
+  // the bound number hasn't changed, which would otherwise leave an
+  // invalid/out-of-range typed value on screen after a no-op commit.
+  goToPage(value: string, inputEl?: HTMLInputElement): void {
+    const requested = Math.trunc(Number(value));
+    const target = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), this.totalPages) : this.currentPage;
+
+    if (target !== this.currentPage) {
+      this.currentPage = target;
+      this.resetTableScroll();
+      this.loadTickets();
+    }
+
+    if (inputEl) {
+      inputEl.value = String(this.currentPage);
     }
   }
 
@@ -553,7 +617,7 @@ export class AppComponent implements OnInit {
   }
 
   get currentProjectColor(): string {
-    return this.projects.find(p => p.id === this.selectedProject)?.color || '#4f46e5';
+    return this.projects.find(p => p.id === this.selectedProject)?.color || '#5b5fc7';
   }
 
   get totalTickets(): number { return this.allTickets.length; }
@@ -603,11 +667,11 @@ export class AppComponent implements OnInit {
     });
 
     const colors: Record<string, string> = {
-      'Closed': '#10b981',
-      'Resolved': '#14b8a6',
-      'Active': '#3b82f6',
-      'New': '#f59e0b',
-      'Other': '#6b7280'
+      'Closed': '#107c10',
+      'Resolved': '#0b825c',
+      'Active': '#0f6cbd',
+      'New': '#9d5d00',
+      'Other': '#8a8886'
     };
 
     return Object.entries(totals).map(([label, value]) => ({
