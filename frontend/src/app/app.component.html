@@ -121,7 +121,7 @@
         <section class="member-grid">
           <article class="member-card" *ngFor="let member of teamWorkload" [ngClass]="member.status" (click)="openMemberDetail(member)">
             <div class="member-card-header">
-              <span class="avatar avatar-lg" [style.background]="getAvatarColor(member.name)">{{ getInitials(member.name) }}</span>
+              <span class="avatar avatar-lg" [style.background]="getAvatarColor(member.email)">{{ getInitials(member.name) }}</span>
               <div class="member-heading">
                 <strong>{{ member.name }}</strong>
                 <span class="status-pill" [ngClass]="member.status">
@@ -164,7 +164,7 @@
       <div class="modal-box" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <div class="member-card-header" style="margin-bottom:0">
-            <span class="avatar avatar-lg" [style.background]="getAvatarColor(selectedMember.name)">{{ getInitials(selectedMember.name) }}</span>
+            <span class="avatar avatar-lg" [style.background]="getAvatarColor(selectedMember.email)">{{ getInitials(selectedMember.name) }}</span>
             <div class="member-heading">
               <strong>{{ selectedMember.name }}</strong>
               <span class="status-pill" [ngClass]="selectedMember.status">
@@ -375,7 +375,7 @@
           <label>
             <span>Assigned User</span>
             <select [(ngModel)]="assigneeFilter" (ngModelChange)="onFilterChange()">
-              <option *ngFor="let option of assigneeOptions" [value]="option">{{ option }}</option>
+              <option *ngFor="let option of assigneeOptions" [value]="option.value">{{ option.label }}</option>
             </select>
           </label>
         </section>
@@ -424,7 +424,7 @@
                   <td><span class="status-pill" [ngClass]="normalizeState(ticket.state).toLowerCase()"><span class="status-dot"></span>{{ normalizeState(ticket.state) }}</span></td>
                   <td>
                     <div class="assignee-cell">
-                      <span class="avatar" [style.background]="getAvatarColor(ticket.assignedTo)">{{ getInitials(ticket.assignedTo) }}</span>
+                      <span class="avatar" [style.background]="getAvatarColor(ticket.assignedToEmail || ticket.assignedTo)">{{ getInitials(ticket.assignedTo) }}</span>
                       {{ ticket.assignedTo }}
                     </div>
                   </td>

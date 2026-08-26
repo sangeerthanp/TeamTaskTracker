@@ -27,6 +27,10 @@ export interface Ticket {
   // hours-worked on; backlog-level types have no such field.
   completedHours: number;
   hasCompletedHours: boolean;
+  // Identity key for matching this ticket back to a TEAM_MEMBERS roster
+  // entry - null when unassigned. assignedTo (above) is display-only and
+  // isn't unique, since two people can share a display name.
+  assignedToEmail: string | null;
   // True for a parent fetched purely to complete the hierarchy chain (e.g. a
   // Release above an Epic) - it wasn't part of the Active/team-scoped query
   // itself, so it's excluded from active-ticket counts and hour totals and
@@ -58,8 +62,16 @@ export interface DashboardProject {
   name: string;
 }
 
+// name is display-only; email is the identity key used everywhere a ticket
+// needs to be matched back to a specific person (display names alone aren't
+// unique across a team).
+export interface TeamMember {
+  name: string;
+  email: string;
+}
+
 export interface DashboardConfig {
-  teamMembers: string[];
+  teamMembers: TeamMember[];
   projects: DashboardProject[];
 }
 

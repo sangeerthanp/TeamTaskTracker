@@ -1,6 +1,6 @@
 ﻿import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { Ticket, TicketService } from './ticket.service';
+import { Ticket, TeamMember, TicketService } from './ticket.service';
 
 const HOURS_PER_DAY = 8;
 const HOURS_PER_STORY_POINT = 8;
@@ -19,6 +19,10 @@ export interface TicketNode {
 
 export interface MemberWorkload {
   name: string;
+  // Identity key backing this workload entry - see TeamMember. Used for
+  // matching tickets and for a stable-per-person avatar color, since two
+  // members can share a display name.
+  email: string;
   status: 'free' | 'engaged' | 'unestimated';
   // What's actually driving the "engaged" verdict - logged hours are the most
   // precise signal, a future due date is the next best thing, and an overdue
@@ -75,7 +79,7 @@ export class AppComponent implements OnInit {
   // dashboard stays portable across orgs/teams.
   projects: Array<{ id: string; name: string; color: string }> = [];
   selectedProject = '';
-  teamMembers: string[] = [];
+  teamMembers: TeamMember[] = [];
   configLoading = true;
   configError = '';
 
@@ -157,10 +161,12 @@ export class AppComponent implements OnInit {
       .join('');
   }
 
-  getAvatarColor(name: string): string {
+  // Keyed on identity (email), not display name, so two people sharing a
+  // name still get distinct, stable colors.
+  getAvatarColor(key: string): string {
     let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < key.length; i++) {
+      hash = key.charCodeAt(i) + ((hash << 5) - hash);
     }
     return this.avatarPalette[Math.abs(hash) % this.avatarPalette.length];
   }
@@ -452,11 +458,16 @@ export class AppComponent implements OnInit {
     const globalById = new Map(this.homeTickets.map((t) => [t.id, t]));
 
     return this.teamMembers
-      .map((name): MemberWorkload => {
-        // Counts/due-date logic use only this person's own real active
-        // tickets - context-only ancestors (see loadHome) are pulled in
-        // separately, purely so buildTicketTree can nest under them.
-        const ownTickets = this.homeTickets.filter((t) => t.assignedTo === name && !t.isContextOnly);
+      .map((member): MemberWorkload => {
+        // Matched on email, not display name - two roster members can share
+        // a display name, and only email uniquely identifies who a ticket's
+        // actually assigned to. Counts/due-date logic use only this person's
+        // own real active tickets - context-only ancestors (see loadHome)
+        // are pulled in separately, purely so buildTicketTree can nest
+        // under them.
+        const ownTickets = this.homeTickets.filter((t) =>
+          t.assignedToEmail?.toLowerCase() === member.email.toLowerCase() && !t.isContextOnly
+        );
         const tickets = this.withAncestorContext(ownTickets, globalById);
         const { groups, totalHours: rawTotalHours } = this.buildTicketTree(tickets);
         // Rounded once here so every downstream figure derived from it
@@ -495,7 +506,7 @@ export class AppComponent implements OnInit {
 
         const workloadPercent = Math.min((totalHours / WORKLOAD_BAR_CAP_HOURS) * 100, 100);
 
-        return { name, status, engagementBasis, activeCount: ownTickets.length, totalHours, daysNeeded, freeDate, workloadPercent, tickets: ownTickets, groups };
+        return { name: member.name, email: member.email, status, engagementBasis, activeCount: ownTickets.length, totalHours, daysNeeded, freeDate, workloadPercent, tickets: ownTickets, groups };
       })
       .sort((a, b) => statusOrder[a.status] - statusOrder[b.status] || b.totalHours - a.totalHours);
   }
@@ -646,8 +657,11 @@ export class AppComponent implements OnInit {
     }
   }
 
-  get assigneeOptions(): string[] {
-    return ['All', ...this.teamMembers];
+  // value is the identity (email) sent to the server; label is what's shown.
+  // Filtering by email (rather than name) is what lets two same-named
+  // members be selected independently.
+  get assigneeOptions(): Array<{ label: string; value: string }> {
+    return [{ label: 'All', value: 'All' }, ...this.teamMembers.map((m) => ({ label: m.name, value: m.email }))];
   }
 
   // Work item types aren't a fixed set across Azure DevOps process templates
@@ -682,18 +696,28 @@ export class AppComponent implements OnInit {
   }
 
   get memberChart(): Array<{ label: string; value: number; color: string }> {
-    const totals: Record<string, number> = {};
+    // Grouped by email (falling back to the raw assignedTo string for
+    // "Unassigned" or anyone outside the roster, neither of which has an
+    // email) rather than display name, so two roster members who happen to
+    // share a name get separate bars instead of one merged total.
+    const totals = new Map<string, { count: number; label: string }>();
 
     this.allTickets.forEach((ticket) => {
-      totals[ticket.assignedTo] = (totals[ticket.assignedTo] || 0) + 1;
+      const key = ticket.assignedToEmail || ticket.assignedTo;
+      const roster = ticket.assignedToEmail
+        ? this.teamMembers.find((m) => m.email.toLowerCase() === ticket.assignedToEmail!.toLowerCase())
+        : undefined;
+      const entry = totals.get(key) || { count: 0, label: roster?.name || ticket.assignedTo };
+      entry.count += 1;
+      totals.set(key, entry);
     });
 
     // Reuse getAvatarColor() so a person's chart bar always matches their
     // avatar color in the table, instead of a second, order-dependent palette.
-    return Object.entries(totals).map(([label, value]) => ({
+    return Array.from(totals.entries()).map(([key, { count, label }]) => ({
       label,
-      value,
-      color: this.getAvatarColor(label)
+      value: count,
+      color: this.getAvatarColor(key)
     }));
   }
 

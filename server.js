@@ -8,12 +8,23 @@ const PORT = Number(process.env.PORT) || 3000;
 const organization = process.env.AZURE_ORG;
 const pat = process.env.AZURE_PAT;
 
-// Full display names exactly as they appear in Azure DevOps' Assigned To
-// field (case-sensitive) - comma-separated in TEAM_MEMBERS. See .env.example.
-const TEAM_MEMBERS = (process.env.TEAM_MEMBERS || "")
-  .split(",")
-  .map((name) => name.trim())
-  .filter(Boolean);
+// Team roster, one entry per member: { name, email }. name is display-only
+// (labels/initials) - email is the identity key used for WIQL identity
+// matching, the assignee filter, and matching a ticket's assignee back to a
+// roster member. Azure DevOps display names alone aren't unique, so keying
+// on name would silently merge two people who happen to share one. JSON
+// array in TEAM_MEMBERS, same style as PROJECTS_CONFIG. See .env.example.
+let TEAM_MEMBERS = [];
+try {
+  const parsedMembers = JSON.parse(process.env.TEAM_MEMBERS || "[]");
+  TEAM_MEMBERS = parsedMembers.map((m) => ({ name: m.name, email: m.email }));
+} catch (err) {
+  console.error("[Config] TEAM_MEMBERS is not valid JSON:", err.message);
+}
+
+// Case-insensitive lookup so a query param's casing (or Azure DevOps'
+// returned casing) doesn't have to match the config file's exactly.
+const TEAM_MEMBERS_BY_EMAIL = new Map(TEAM_MEMBERS.map((m) => [m.email.toLowerCase(), m]));
 
 const STATE_FILTER_TO_AZURE_STATE = {
   New: 'New',
@@ -141,6 +152,9 @@ function mapWorkItemToTicket(item, projectConfig, isContextOnly) {
     title: fields["System.Title"] || "",
     state: fields["System.State"] || "",
     assignedTo: assigned?.displayName || "Unassigned",
+    // Identity key for matching this ticket back to a TEAM_MEMBERS roster
+    // entry - null when unassigned, since there's no identity object at all.
+    assignedToEmail: assigned?.uniqueName || null,
     type,
     parentId: fields["System.Parent"] || null,
     sprint,
@@ -197,8 +211,13 @@ app.get("/api/tickets", async (req, res) => {
   }
 
   // Optional server-side filters. assignedTo/state are validated against known
-  // allow-lists before being interpolated into the WIQL query.
-  const assignedToFilter = TEAM_MEMBERS.includes(req.query.assignedTo) ? req.query.assignedTo : null;
+  // allow-lists before being interpolated into the WIQL query. assignedTo is
+  // an email (case-insensitive) - the matched roster entry's own stored
+  // casing is used below, never the raw query param, so this stays a strict
+  // allow-list rather than a pass-through.
+  const assignedToRosterEntry = typeof req.query.assignedTo === "string"
+    ? TEAM_MEMBERS_BY_EMAIL.get(req.query.assignedTo.toLowerCase())
+    : null;
   const stateFilter = Object.prototype.hasOwnProperty.call(STATE_FILTER_TO_AZURE_STATE, req.query.state)
     ? STATE_FILTER_TO_AZURE_STATE[req.query.state]
     : null;
@@ -220,13 +239,23 @@ app.get("/api/tickets", async (req, res) => {
   const pageSize = Math.max(1, parseInt(req.query.pageSize, 10) || 10);
 
   try {
-    const teamList = TEAM_MEMBERS.map((name) => `'${escapeWiqlLiteral(name)}'`).join(", ");
+    // Matched by bare display name, not email - Microsoft's documented
+    // "Display Name <email>" combined form (and a bare email/unique-name
+    // literal) were both verified against this org to match zero items, even
+    // for a confirmed-correct identity. Display name is what's actually
+    // proven to work here. This can still be ambiguous when two roster
+    // members share a display name, but that's fine at this stage: it only
+    // narrows which work item ids get fetched below, not who a ticket is
+    // ultimately attributed to - that happens after fetch, keyed on the
+    // authoritative email from the item's own AssignedTo field (see
+    // assignedToRosterEntry filtering below and assignedToEmail throughout).
+    const teamList = TEAM_MEMBERS.map((m) => `'${escapeWiqlLiteral(m.name)}'`).join(", ");
     const conditions = [
       `[System.AreaPath] UNDER '${escapeWiqlLiteral(projectConfig.areaPath)}'`,
       `[System.AssignedTo] IN (${teamList})`
     ];
-    if (assignedToFilter) {
-      conditions.push(`[System.AssignedTo] = '${escapeWiqlLiteral(assignedToFilter)}'`);
+    if (assignedToRosterEntry) {
+      conditions.push(`[System.AssignedTo] = '${escapeWiqlLiteral(assignedToRosterEntry.name)}'`);
     }
     if (stateFilter) {
       conditions.push(`[System.State] = '${escapeWiqlLiteral(stateFilter)}'`);
@@ -272,15 +301,24 @@ app.get("/api/tickets", async (req, res) => {
     }
 
     const workItems = wiqlResponse.data?.workItems || [];
-    const total = workItems.length;
-    console.log(`[Azure DevOps] WIQL returned ${total} work item ids.`);
+    const matchedCount = workItems.length;
+    console.log(`[Azure DevOps] WIQL returned ${matchedCount} work item ids.`);
 
-    if (total === 0) {
+    if (matchedCount === 0) {
       return res.json({ tickets: [], total: 0, page, pageSize, totalPages: 0 });
     }
 
     const allIds = workItems.map((item) => item.id);
-    const idsToFetch = paginate ? allIds.slice((page - 1) * pageSize, page * pageSize) : allIds;
+    // A single-assignee filter only narrows the WIQL match by display name
+    // (see the comment above conditions) - when two roster members share a
+    // name, the matched id set can include both. To attribute each ticket to
+    // the exact person, every candidate's details must be fetched (not just
+    // one page) and filtered by email before pagination is applied, rather
+    // than slicing ids into a page up front. Without an assignee filter, the
+    // matched set is already exactly what's being shown, so the cheaper
+    // page-slice-before-fetch path is unchanged.
+    const needsFullFetch = !paginate || !!assignedToRosterEntry;
+    const idsToFetch = needsFullFetch ? allIds : allIds.slice((page - 1) * pageSize, page * pageSize);
 
     // Fetch in batches of 200 to avoid URL length limits (a single page is
     // almost always one batch; only the unpaginated summary call needs more).
@@ -290,7 +328,7 @@ app.get("/api/tickets", async (req, res) => {
       batches.push(idsToFetch.slice(i, i + batchSize));
     }
 
-    console.log(`[Azure DevOps] Fetching ${idsToFetch.length} of ${total} work item(s) in ${batches.length} batch(es).`);
+    console.log(`[Azure DevOps] Fetching ${idsToFetch.length} of ${matchedCount} work item(s) in ${batches.length} batch(es).`);
 
     // Azure DevOps only returns a small default field set unless the exact
     // fields are requested - without this, the scheduling fields below come
@@ -338,10 +376,27 @@ app.get("/api/tickets", async (req, res) => {
 
     // Azure DevOps doesn't guarantee the details response preserves ID order.
     const detailsById = new Map(allDetails.map((item) => [item.id, item]));
-    const result = idsToFetch
+    let result = idsToFetch
       .map((id) => detailsById.get(id))
       .filter(Boolean)
       .map((item) => mapWorkItemToTicket(item, projectConfig, false));
+
+    // The precise per-person cut - narrows the display-name-matched
+    // candidates above down to exactly this email, using the authoritative
+    // identity from the item's own AssignedTo field.
+    if (assignedToRosterEntry) {
+      result = result.filter((t) =>
+        t.assignedToEmail && t.assignedToEmail.toLowerCase() === assignedToRosterEntry.email.toLowerCase()
+      );
+    }
+
+    // Only recomputed post-filter when a single-assignee filter actually
+    // changed the candidate set - otherwise idsToFetch/matchedCount already
+    // are the exact page/total being returned.
+    const total = assignedToRosterEntry ? result.length : matchedCount;
+    const pageResult = (paginate && assignedToRosterEntry)
+      ? result.slice((page - 1) * pageSize, page * pageSize)
+      : result;
 
     // Backfill any parent not already in the result set (e.g. a Release
     // above an Epic, or a Feature's own parent) so the hierarchy view can
@@ -350,8 +405,8 @@ app.get("/api/tickets", async (req, res) => {
     // they're structural context, not part of the person's active workload.
     const contextTickets = [];
     if (includeParentContext) {
-      const knownIds = new Set(result.map((t) => t.id));
-      let frontierIds = [...new Set(result.map((t) => t.parentId).filter((id) => id != null && !knownIds.has(id)))];
+      const knownIds = new Set(pageResult.map((t) => t.id));
+      let frontierIds = [...new Set(pageResult.map((t) => t.parentId).filter((id) => id != null && !knownIds.has(id)))];
       const MAX_CONTEXT_DEPTH = 6;
 
       for (let depth = 0; frontierIds.length && depth < MAX_CONTEXT_DEPTH; depth += 1) {
@@ -379,8 +434,8 @@ app.get("/api/tickets", async (req, res) => {
       }
     }
 
-    const combinedTickets = [...result, ...contextTickets];
-    console.log(`[Azure DevOps] Returning ${result.length} mapped tickets + ${contextTickets.length} parent-context tickets (page ${page}, total ${total}).`);
+    const combinedTickets = [...pageResult, ...contextTickets];
+    console.log(`[Azure DevOps] Returning ${pageResult.length} mapped tickets + ${contextTickets.length} parent-context tickets (page ${page}, total ${total}).`);
     return res.json({
       tickets: combinedTickets,
       total,
