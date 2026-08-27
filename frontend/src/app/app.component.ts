@@ -334,18 +334,24 @@ export class AppComponent implements OnInit {
   // How much of a ticket's estimate is actually still left, right now.
   // Completed Work (only ever set on Tasks) is the most reliable signal when
   // it's there. Otherwise this counts down from the estimate based on
-  // working days elapsed since the ticket was created, at HOURS_PER_DAY
-  // (8h) per day - nobody works nights/weekends, so raw calendar-hour
-  // elapsed time would burn through the estimate 3x too fast. It's still
-  // an approximation (nobody works every working hour on this one ticket
-  // either), not a substitute for actually logging work.
+  // working days elapsed since the ticket was last touched (changedDate),
+  // at HOURS_PER_DAY (8h) per day - nobody works nights/weekends, so raw
+  // calendar-hour elapsed time would burn through the estimate 3x too fast.
+  // Anchored to changedDate rather than createdDate because a ticket can sit
+  // unestimated for days before its estimate is first set (or later
+  // revised) - decaying from creation would treat that dormant time as
+  // already-consumed work and could show the estimate as fully burned the
+  // moment it's set. It's still an approximation (nobody works every
+  // working hour on this one ticket either), not a substitute for actually
+  // logging work.
   private remainingHoursFor(ticket: Ticket): number {
     if (!ticket.hasEstimate) return 0;
     if (ticket.hasCompletedHours) {
       return Math.max(0, ticket.estimatedHours - ticket.completedHours);
     }
-    if (!ticket.createdDate) return ticket.estimatedHours;
-    const elapsedHours = this.elapsedWorkingDaysSince(new Date(ticket.createdDate)) * HOURS_PER_DAY;
+    const anchorDate = ticket.changedDate || ticket.createdDate;
+    if (!anchorDate) return ticket.estimatedHours;
+    const elapsedHours = this.elapsedWorkingDaysSince(new Date(anchorDate)) * HOURS_PER_DAY;
     return Math.max(0, ticket.estimatedHours - elapsedHours);
   }
 
